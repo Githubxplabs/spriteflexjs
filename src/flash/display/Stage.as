@@ -1,8 +1,10 @@
 package flash.display
 {
 	import flash.__native.GLCanvasRenderingContext2D;
+	import flash.__native.WebGLRenderer;
 	import flash.events.Event;
 	import flash.events.EventDispatcher;
+	import flash.events.KeyboardEvent;
 	import flash.events.MouseEvent;
 	import flash.events.TouchEvent;
 	import flash.geom.Rectangle;
@@ -10,6 +12,8 @@ package flash.display
 	
 	public class Stage extends EventDispatcher
 	{
+		public var __rootHtmlElement:Element;
+		public var __htmlWrapper:Element;
 		private var _frameRate:int;
 		private var _stage3Ds:Vector.<Stage3D>;
 		private static const kInvalidParamError:uint = 2004;
@@ -22,26 +26,51 @@ package flash.display
 		private var needSendMouseMove:Boolean = false;
 		private var needSendTouchMove:Boolean = false;
 		private var lastUpdateTime:int = -1000;
-		private var requestAnimationFrameHander:Number;
-		private var _stageWidth:Number;
-		private var _stageHeight:Number;
+		//private var requestAnimationFrameHander:Number;
+		private var _loaderInfo:LoaderInfo;
+		private var _stageWidth:Number=0;
+		private var _stageHeight:Number=0;
 		public function Stage()
 		{
-			super();
-			_stageWidth = window.innerWidth;
-			_stageHeight = window.innerHeight;
-			if (SpriteFlexjs.startTime==0) {
-				SpriteFlexjs.startTime = (new Date()).getTime();
+			trace("power by SpriteFlexJS");
+			__rootHtmlElement = document.createElement("div");
+			document.body.appendChild(__rootHtmlElement);
+			
+			__htmlWrapper = document.createElement("div");
+			document.body.appendChild(__htmlWrapper);
+			__htmlWrapper.style.position = "absolute";
+			__htmlWrapper.style.left = "0px";
+			__htmlWrapper.style.top = "0px";
+			__htmlWrapper.style.zIndex =0;
+			
+			_loaderInfo = new LoaderInfo();
+			if (SpriteFlexjs.startTime===0) {
+				SpriteFlexjs.startTime = Date.now();
 			}
 			frameRate = 60;
 			_stage3Ds = Vector.<Stage3D>([new Stage3D, new Stage3D, new Stage3D, new Stage3D]);
+			_stage3Ds[0].__stage = this;
+			_stage3Ds[1].__stage = this;
+			_stage3Ds[2].__stage = this;
+			_stage3Ds[3].__stage = this;
 			window.addEventListener("resize", window_resize, false);
+			window.addEventListener("orientationchange", window_resize, false);
+			setTimeout(__update);
 		}
 		
 		private function window_resize(e:Object):void
 		{
-			_stageWidth = window.innerWidth;
-			_stageHeight = window.innerHeight;
+			SpriteFlexjs.dirtyGraphics = true;
+			if (SpriteFlexjs.autoSize){
+				SpriteFlexjs.stageWidth = window.innerWidth;
+				SpriteFlexjs.stageHeight = window.innerHeight;
+			}
+			_stageWidth = SpriteFlexjs.stageWidth;
+			_stageHeight = SpriteFlexjs.stageHeight;
+			canvas.width = _stageWidth;
+			canvas.height = _stageHeight;
+			canvas.style.width = _stageWidth + "px";
+			canvas.style.height = _stageHeight + "px";
 			dispatchEvent(new Event(Event.RESIZE));
 		}
 		
@@ -50,20 +79,25 @@ package flash.display
 		public function set frameRate(v:Number):void
 		{
 			_frameRate = v;
-			try{
+			/*try{
 				cancelRequestAnimationFrame(requestAnimationFrameHander);
-			}catch(e:Object){}
-			__update();
+			}catch(e:Object){}*/
+			//__update();
 		}
 		
 		private function __update():void {
+			if(_stageWidth != SpriteFlexjs.stageWidth||
+			_stageHeight != SpriteFlexjs.stageHeight){
+				window_resize(null);
+			}
+			
 			//http://codetheory.in/controlling-the-frame-rate-with-requestanimationframe/	
-			requestAnimationFrameHander = requestAnimationFrame(__update);
-			var now:Number = getTimer();
-			var interval:Number = 1000/frameRate;
-			var delta:Number = now - lastUpdateTime;
-			if (delta > interval) {
-				lastUpdateTime = now - (delta % interval);
+			/*requestAnimationFrameHander = */SpriteFlexjs.requestAnimationFrame.call(window,__update);
+			//var now:Number = getTimer();
+			//var interval:Number = Math.ceil(1000/frameRate);
+			//var delta:Number = now - lastUpdateTime;
+			//if (delta >= interval) {
+			//	lastUpdateTime = now - (delta % interval);
 				if (needSendMouseMove) {
 					dispatchEvent(new MouseEvent(MouseEvent.MOUSE_MOVE, true, false, _mouseX, _mouseY));
 					needSendMouseMove = false;
@@ -73,10 +107,12 @@ package flash.display
 					needSendTouchMove = false;
 				}
 				dispatchEvent(new Event(Event.ENTER_FRAME));
-			}
+			//}
 		}
 		
 		public function invalidate():void  {/**/ }
+		
+		public function get loaderInfo():LoaderInfo  { return _loaderInfo; }
 		
 		public function get scaleMode():String  { return null }
 		
@@ -114,9 +150,19 @@ package flash.display
 		
 		public function set quality(param1:String):void  {/**/ }
 		
-		public function get displayState():String  { return null }
+		public function get displayState():String  {
+			return (document["fullscreen"] || document["webkitIsFullScreen"] || document["mozFullScreen"]) ? "fullScreen" : "normal";
+		}
 		
-		public function set displayState(param1:String):void  {/**/ }
+		public function set displayState(param1:String):void  {
+			if (param1.indexOf("fullScreen")!=-1) {
+				var requestFunc:Function = (_canvas["requestFullscreen"] || _canvas["webkitRequestFullScreen"] || _canvas["mozRequestFullScreen"] || _canvas["msRequestFullscreen"]);
+				requestFunc.call(_canvas);
+			} else {
+				var cancelFunc:Function = (document["exitFullscreen"] || document["webkitExitFullScreen"] || document["mozCancelFullScreen"] || document["msExitFullscreen"]);
+				cancelFunc.call(document);
+			}
+		}
 		
 		public function get fullScreenSourceRect():Rectangle  { return null }
 		
@@ -158,7 +204,16 @@ package flash.display
 			if (!_canvas)
 			{
 				//http://www.w3schools.com/jsref/dom_obj_event.asp
-				_canvas = document.createElement("canvas") as HTMLCanvasElement;
+				_canvas = document.getElementById("spriteflexjsstage") as HTMLCanvasElement;
+				if (_canvas == null){
+					_canvas=document.createElement("canvas") as HTMLCanvasElement;
+					_canvas.style.position = "absolute";
+					_canvas.style.left = "0px";
+					_canvas.style.top = "0px";
+					_canvas.style.zIndex = -10;
+					__rootHtmlElement.appendChild(_canvas as HTMLCanvasElement);
+				}
+				
 				_canvas.addEventListener("click", canvas_mouseevent,false);
 				_canvas.addEventListener("contextmenu", canvas_mouseevent,false);
 				_canvas.addEventListener("dblclick", canvas_mouseevent,false);
@@ -174,13 +229,8 @@ package flash.display
 				_canvas.addEventListener("touchend", canvas_touchevent,false);
 				_canvas.addEventListener("touchmove", canvas_touchevent,false);
 				_canvas.addEventListener("touchstart", canvas_touchevent,false);
-				_canvas.width = stageWidth;
-				_canvas.height = stageHeight;
-				_canvas.style.position = "absolute";
-				_canvas.style.left = 0;
-				_canvas.style.top = 0;
-				_canvas.style.zIndex = 1;
-				document.body.appendChild(_canvas as HTMLCanvasElement);
+				document.addEventListener("keydown", canvas_keyevent,false);
+				document.addEventListener("keyup", canvas_keyevent,false);
 			}
 			return _canvas;
 		}
@@ -229,12 +279,27 @@ package flash.display
 						needSendMouseMove = true;
 					}
 				}
-				if (flashType==TouchEvent.TOUCH_END&&hasEventListener(MouseEvent.CLICK)) {
+				if (flashType===TouchEvent.TOUCH_END&&hasEventListener(MouseEvent.CLICK)) {
 					dispatchEvent(new MouseEvent(MouseEvent.CLICK, true, false, _mouseX, _mouseY));
 				}
 			}
 		}
-		private function canvas_mouseevent(e:Object):void 
+		private function canvas_keyevent(e:Object):void {
+			var jsType:String = e.type;
+			var flashType:String;
+			switch(jsType) {
+				case "keydown":
+					flashType = KeyboardEvent.KEY_DOWN;
+					break;
+				case "keyup":
+					flashType = KeyboardEvent.KEY_UP;
+					break;
+			}
+			if (hasEventListener(flashType)) {
+				dispatchEvent(new KeyboardEvent(flashType, true, false, e.charCode, e.keyCode, e.location, e.ctrlKey, e.altKey, e.shiftKey));
+			}
+		}
+		private function canvas_mouseevent(e:Object):void
 		{
 			var jsType:String = e.type;
 			var flashType:String;
@@ -293,10 +358,12 @@ package flash.display
 		{
 			if (!_ctx)
 			{
-				if (SpriteFlexjs.wmode=="gpu") {
+				if (SpriteFlexjs.wmode==="gpu") {
 					_ctx = new GLCanvasRenderingContext2D(this) as CanvasRenderingContext2D;
-				}else if (SpriteFlexjs.wmode=="gpu batch"){
-					_ctx = new GLCanvasRenderingContext2D(this,true) as CanvasRenderingContext2D;
+					SpriteFlexjs.renderer = new WebGLRenderer;
+				}else if (SpriteFlexjs.wmode==="gpu batch"){
+					_ctx = new GLCanvasRenderingContext2D(this, true) as CanvasRenderingContext2D;
+					SpriteFlexjs.renderer = new WebGLRenderer;
 				}else{
 					_ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 				}

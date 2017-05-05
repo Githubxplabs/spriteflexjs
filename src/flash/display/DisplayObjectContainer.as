@@ -65,7 +65,7 @@ package flash.display
 			var len:int = children.length;
 			for (var i:int = 0; i < len;i++ ) {
 				var c:DisplayObject = children[i];
-				if (c.name==name) {
+				if (c.name===name) {
 					return c;
 				}
 			}
@@ -147,13 +147,13 @@ package flash.display
 		
 		}
 		
-		override public function __update():void
+		override public function __update(ctx:CanvasRenderingContext2D):void
 		{
-			if (stage && visible){
+			if (/*stage && */visible){
 				var len:int = children.length
 				for (var i:int = 0; i < len;i++ ){
 					var c:DisplayObject = children[i];
-					c.__update();
+					c.__update(ctx);
 				}
 			}
 		}
@@ -191,8 +191,7 @@ package flash.display
 				if (rect == null) {
 					rect = rect1;
 				}else if(rect1){
-					rect.inflate(rect1.x, rect1.y);
-					rect.inflate(rect1.right, rect1.bottom);
+					rect.union(rect1);
 				}
 			}
 			return rect;

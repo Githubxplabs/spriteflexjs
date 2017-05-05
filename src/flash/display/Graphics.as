@@ -18,6 +18,7 @@ package flash.display
 		public var bound:Rectangle;// = new Rectangle(Number.MAX_VALUE, Number.MAX_VALUE, -Number.MAX_VALUE, -Number.MAX_VALUE);
 		private var lockBound:Boolean = false;
 		public static var debug:Boolean = false;
+		public var _worldMatrix:Matrix = new Matrix;
 		public function Graphics()
 		{
 			super();
@@ -25,6 +26,7 @@ package flash.display
 		
 		public function clear():void
 		{
+			SpriteFlexjs.dirtyGraphics = true;
 			lastStroke = null;
 			lastPath = null;
 			pathPoolPos = 0;
@@ -90,7 +92,7 @@ package flash.display
 			endStrokAndFill();
 			if (!isNaN(thickness))
 			{
-				lastStroke = new GraphicsStroke(thickness == 0 ? 1 : thickness, pixelHinting, scaleMode, caps, joints, miterLimit, new GraphicsSolidFill(color, alpha));
+				lastStroke = new GraphicsStroke(thickness === 0 ? 1 : thickness, pixelHinting, scaleMode, caps, joints, miterLimit, new GraphicsSolidFill(color, alpha));
 				graphicsData.push(lastStroke);
 			}
 		}
@@ -232,13 +234,15 @@ package flash.display
 			{
 				lastPath = pathPool[pathPoolPos];
 				if (lastPath==null){
-					lastPath = pathPool[pathPoolPos] = new GraphicsPath;
+					lastPath = pathPool[pathPoolPos] = SpriteFlexjs.renderer.createPath();
 				}
+				//lastPath.commands = null;
+				//lastPath.data = null;
+				lastPath.clear();
+				lastPath.gpuPath2DDirty = true;
 				pathPoolPos++;
-				lastPath.commands = null;
-				lastPath.data = null;
-				lastPath.version++;
 				graphicsData.push(lastPath);
+				SpriteFlexjs.dirtyGraphics = true;
 			}
 		}
 		
@@ -272,7 +276,8 @@ package flash.display
 		
 		public function drawTriangles(vertices:Vector.<Number>, indices:Vector.<int>=null, uvtData:Vector.<Number>=null, culling:String="none"):void
 		{
-		
+			makePath();
+			lastPath.drawTriangles(vertices, indices, uvtData);
 		}
 		
 		private function drawPathObject(path:IGraphicsPath):void
@@ -416,11 +421,11 @@ package flash.display
 			return graphicsData.slice();
 		}
 		
-		public function draw(ctx:CanvasRenderingContext2D, m:Matrix,alpha:Number,blendMode:String,colorTransform:ColorTransform):void
+		public function draw(ctx:CanvasRenderingContext2D, m:Matrix,blendMode:String,colorTransform:ColorTransform):void
 		{
 			if (graphicsData.length)
 			{
-				SpriteFlexjs.renderer.renderGraphics(ctx, this, m, alpha, blendMode, colorTransform);
+				SpriteFlexjs.renderer.renderGraphics(ctx, this, m, blendMode, colorTransform);
 				SpriteFlexjs.drawCounter++;
 			}
 		}

@@ -1,24 +1,42 @@
 package flash.text
 {
 	import flash.display.BlendMode;
+	import flash.display.Graphics;
 	import flash.display.InteractiveObject;
+	import flash.events.Event;
 	import flash.geom.Matrix;
 	import flash.geom.Rectangle;
 	import flash.display.DisplayObject;
 	
 	public class TextField extends InteractiveObject
 	{
-		
+		private var input:HTMLInputElement;
+		private var _type:String = TextFieldType.DYNAMIC;
+		private var graphics:Graphics = new Graphics;
+		private var graphicsDirty:Boolean = true;
 		private static var richTextFields:Array = ["font", "size", "color", "bold", "italic", "underline", "url", "target", "align", "leftMargin", "rightMargin", "indent", "leading", "blockIndent", "kerning", "letterSpacing", "display"];
-		private var _text:String;
-		private var lines:Array;
+		private var _text:String="";
+		private var lines:Array = [];
 		private var _textFormat:TextFormat=new TextFormat;
 		private var _width:Number = 100;
 		private var _height:Number = 100;
+		private var _autoSize:String;
+		private var _background:Boolean = false;
+		private var _backgroundColor:uint = 0;
+		private var _border:Boolean = false;
+		private var _borderColor:uint = 0;
+		private var boundHelpRect:Rectangle = new Rectangle;
 		public function TextField()
 		{
-			super();
 			textColor = 0;
+			addEventListener(Event.REMOVED_FROM_STAGE, removedFromStage);
+		}
+		
+		private function removedFromStage(e:Event):void 
+		{
+			if (input&&input.parentElement){
+				input.parentElement.removeChild(input);
+			}
 		}
 		
 		public static function isFontCompatible(param1:String, param2:String):Boolean  { return false; }
@@ -31,25 +49,45 @@ package flash.text
 		
 		public function set antiAliasType(param1:String):void  {/**/ }
 		
-		public function get autoSize():String  { return null; }
+		public function get autoSize():String  { return _autoSize; }
 		
-		public function set autoSize(param1:String):void  {/**/ }
+		public function set autoSize(param1:String):void  {
+			_autoSize = param1; 
+			graphicsDirty = true;
+			SpriteFlexjs.dirtyGraphics = true;
+		}
 		
-		public function get background():Boolean  { return false; }
+		public function get background():Boolean  { return _background; }
 		
-		public function set background(param1:Boolean):void  {/**/ }
+		public function set background(param1:Boolean):void  {
+			_background = param1;
+			graphicsDirty = true;
+			SpriteFlexjs.dirtyGraphics = true;
+		}
 		
-		public function get backgroundColor():uint  { return 0; }
+		public function get backgroundColor():uint  { return _backgroundColor; }
 		
-		public function set backgroundColor(param1:uint):void  {/**/ }
+		public function set backgroundColor(param1:uint):void  {
+			_backgroundColor=param1 
+			graphicsDirty = true;
+			SpriteFlexjs.dirtyGraphics = true;
+		}
 		
-		public function get border():Boolean  { return false; }
+		public function get border():Boolean  { return _border; }
 		
-		public function set border(param1:Boolean):void  {/**/ }
+		public function set border(param1:Boolean):void  {
+			_border = param1;
+			graphicsDirty = true;
+			SpriteFlexjs.dirtyGraphics = true;
+		}
 		
-		public function get borderColor():uint  { return 0; }
+		public function get borderColor():uint  { return _borderColor; }
 		
-		public function set borderColor(param1:uint):void  {/**/ }
+		public function set borderColor(param1:uint):void  {
+			_borderColor = param1 ;
+			graphicsDirty = true;
+			SpriteFlexjs.dirtyGraphics = true;
+		}
 		
 		public function get bottomScrollV():int  { return 0; }
 		
@@ -61,7 +99,11 @@ package flash.text
 		
 		public function get defaultTextFormat():TextFormat  { return _textFormat; }
 		
-		public function set defaultTextFormat(param1:TextFormat):void  { _textFormat = param1; }
+		public function set defaultTextFormat(param1:TextFormat):void  {
+			_textFormat = param1; 
+			graphicsDirty = true;
+			SpriteFlexjs.dirtyGraphics = true;
+		}
 		
 		public function get embedFonts():Boolean  { return false; }
 		
@@ -139,6 +181,8 @@ package flash.text
 		public function set text(txt:String):void  {
 			_text = txt; 
 			lines = txt.split("\n");
+			SpriteFlexjs.dirtyGraphics = true;
+			graphicsDirty = true;
 		}
 		
 		public function get textColor():uint  { return int(_textFormat.color); }
@@ -146,6 +190,8 @@ package flash.text
 		public function set textColor(color:uint):void
 		{
 			_textFormat.color = color;
+			graphicsDirty = true;
+			SpriteFlexjs.dirtyGraphics = true;
 		}
 		
 		public function get textHeight():Number  { 
@@ -173,9 +219,26 @@ package flash.text
 		
 		public function set thickness(param1:Number):void  {/**/ }
 		
-		public function get type():String  { return null; }
+		public function get type():String  { return _type; }
 		
-		public function set type(param1:String):void  {/**/ }
+		public function set type(param1:String):void  {
+			_type = param1;
+			if (_type==TextFieldType.INPUT){
+				if (input==null){
+					input = document.createElement("input") as HTMLInputElement;
+					input.oninput = input_change;
+					input.style.position = "absolute";
+					input.style.backgroundColor = "transparent";
+					input.style.borderWidth = 0;
+					input.style.outline = "none";
+				}
+			}
+		}
+		
+		private function input_change(e:Event):void 
+		{
+			text = input.value;
+		}
 		
 		public function get wordWrap():Boolean  { return false; }
 		
@@ -188,7 +251,7 @@ package flash.text
 		
 		override public function get width():Number 
 		{
-			return _width;
+			return autoSize==TextFieldAutoSize.LEFT?(textWidth+4):_width;
 		}
 		
 		override public function set width(value:Number):void 
@@ -198,7 +261,7 @@ package flash.text
 		
 		override public function get height():Number 
 		{
-			return _height;
+			return autoSize==TextFieldAutoSize.LEFT?(textHeight+2):_height;
 		}
 		
 		override public function set height(value:Number):void 
@@ -375,21 +438,73 @@ package flash.text
 		
 		public function set useRichTextClipboard(param1:Boolean):void  {/**/ }
 		
-		override public function __update():void
+		override public function __update(ctx:CanvasRenderingContext2D):void
 		{
-			super.__update();
-			if (stage && _text != null&&visible)
+			super.__update(ctx);
+			if (/*stage &&*/ _text != null&&visible)
 			{
-				var ctx:CanvasRenderingContext2D = stage.ctx;
-				__draw(ctx,worldMatrix);
+				__draw(ctx,transform.concatenatedMatrix);
 				SpriteFlexjs.drawCounter++;
 			}
 		}
 		
 		public function __draw(ctx:CanvasRenderingContext2D, m:Matrix):void{
-			for (var i:int = 0; i < lines.length;i++ ){
-				SpriteFlexjs.renderer.renderText(ctx, lines[i], defaultTextFormat, m, worldAlpha, blendMode, transform.colorTransform, 0, i * int(defaultTextFormat.size));
+			if(border || background){
+				if (graphicsDirty){
+					graphicsDirty = false;
+					graphics.clear();
+					if (border){
+						graphics.lineStyle(0, borderColor);
+					}
+					if (background){
+						graphics.beginFill(backgroundColor);
+					}
+					graphics.drawRect( -2, -1, width, height);
+				}
+				SpriteFlexjs.renderer.renderGraphics(ctx, graphics, m, blendMode, transform.concatenatedColorTransform);
 			}
+			if(type==TextFieldType.DYNAMIC){
+				for (var i:int = 0; i < lines.length; i++ ){
+					//if(m.ty>0){
+					//	alert(m.toString()+","+transform.matrix.toString()+" "+y);
+					//}
+					SpriteFlexjs.renderer.renderText(ctx, lines[i], defaultTextFormat, m, blendMode, transform.concatenatedColorTransform, 0, i * int(defaultTextFormat.size));
+				}
+			}else{
+				input.style.left = m.tx+"px";
+				input.style.top = m.ty + "px";
+				input.style.width = width + "px";
+				input.style.height = height + "px";
+				input.style.fontFamily = defaultTextFormat.font;
+				input.style.fontSize = defaultTextFormat.size+"px";
+				input.style.color = defaultTextFormat.csscolor;
+				if(input.value!=text)
+				input.value = text;
+				//input.style.transform = "matrix("+m.a+","+m.b+","+m.c+","+m.d+","+m.tx+","+m.ty+")";
+				if(input.parentElement==null){
+					stage.__htmlWrapper.appendChild(input);
+				}
+			}
+		}
+		
+		override protected function __doMouse(e:flash.events.MouseEvent):DisplayObject 
+		{
+			if (/*stage &&*/ mouseEnabled&&visible) {
+				if (hitTestPoint(stage.mouseX, stage.mouseY)) {
+					return this;
+				}
+			}
+			return null;
+		}
+		
+		override public function __getRect():Rectangle 
+		{
+			if (text && text != "") {
+				boundHelpRect.width = width;
+				boundHelpRect.height = height;
+				return boundHelpRect;
+			}
+			return null;
 		}
 	}
 }

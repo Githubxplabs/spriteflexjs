@@ -17,7 +17,9 @@ package
 			document.body.appendChild(canvas);
 			canvas.width = 400;
 			canvas.height = 400;
-			var gl:WebGLRenderingContext = (canvas.getContext("webgl")||canvas.getContext("experimental-webgl")) as WebGLRenderingContext;
+			var gl:WebGLRenderingContext = (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) as WebGLRenderingContext;
+			var t1:Object = canvas.getContext("webgl");
+			var t2:Object = canvas.getContext("experimental-webgl");
 			gl.clearColor(0, 0, 0, 1);
 			gl.enable(gl.DEPTH_TEST);
 			gl.depthFunc(gl.LEQUAL);
@@ -56,12 +58,13 @@ package
 			var buffer:WebGLBuffer = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(/*drawable.pos.data/**/[0, .7, 0, -.7, -.7, 0, .7, -.7, 0]), gl.STATIC_DRAW);
+			//gl.bufferData(gl.ARRAY_BUFFER, new Int32Array(/*drawable.pos.data/**/[0xff00, 0, 0xffff00]), gl.STATIC_DRAW);
 			gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 			
 			buffer = gl.createBuffer();
 			gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([1,0,0,0,1,0,0,0,1]), gl.STATIC_DRAW);
-			gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+			gl.bufferData(gl.ARRAY_BUFFER, new Uint32Array([0xff00,0x000000,0x00]), gl.STATIC_DRAW);
+			gl.vertexAttribPointer(1, 4, gl.UNSIGNED_BYTE, true, 0, 0);
 			
 			var ibuffer:WebGLBuffer = gl.createBuffer();
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibuffer);
@@ -75,15 +78,16 @@ package
 			
 			//draw
 			var matr:Matrix3D = new Matrix3D();
-			setInterval(function():void { 
+			update();
+			function update():void { 
+				requestAnimationFrame(update);
 				var mvpLoction:WebGLUniformLocation = gl.getUniformLocation(program, "mvp");
 				
 				matr.appendRotation(1, Vector3D.Z_AXIS);
 				gl.uniformMatrix4fv(mvpLoction, false,matr.rawData);
-				
 				gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
 				
-			}, 1000/60);
+			}
 			/*var xhr:XMLHttpRequest = new XMLHttpRequest;
 			xhr.open("get", "1.txt");
 			xhr.onreadystatechange=function():void{

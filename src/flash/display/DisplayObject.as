@@ -23,24 +23,17 @@ package flash.display
 		private var _rotation:Number = 0;
 		private var rsin:Number = 0;
 		private var rcos:Number = 1;
-		private var _transform:Transform;
-		private var dirty:Boolean = true;
-		private var _worldMatrix:Matrix;
-		private var invDirty:Boolean = true;
-		private var _invMatrix:Matrix;
+		public var transform:Transform;
 		public var _parent:DisplayObjectContainer;
-		private var _alpha:Number = 1;
 		private var _visible:Boolean = true;
 		private var lastMouseOverObj:DisplayObject;
 		private var _blendMode:String;
 		public function DisplayObject()
 		{
-			_transform = new Transform(this);
-			_worldMatrix = new Matrix;
-			_invMatrix = new Matrix;
+			transform = new Transform(this);
 			innerID = ID++;
 			name = "instance" + innerID;
-			if (innerID == 0)
+			if (innerID === 0)
 			{
 				_stage = new Stage;
 				_stage.addEventListener(Event.ENTER_FRAME, __enterFrame);
@@ -109,14 +102,14 @@ package flash.display
 		public function get scaleX():Number
 		{
 			var m:Matrix = transform.matrix;
-			if (m.b == 0) return m.a;
+			if (m.b === 0) return m.a;
 			return Math.sqrt(m.a * m.a + m.b * m.b);
 		}
 		
 		public function set scaleX(v:Number):void
 		{
 			var m:Matrix = transform.matrix;
-			if (m.c == 0)
+			if (m.c === 0)
 			{
 				m.a = v;
 			}
@@ -131,7 +124,7 @@ package flash.display
 		public function get scaleY():Number
 		{
 			var m:Matrix = transform.matrix;
-			if (m.c == 0)
+			if (m.c === 0)
 			{
 				return m.d;
 			}
@@ -141,7 +134,7 @@ package flash.display
 		public function set scaleY(v:Number):void
 		{
 			var m:Matrix = transform.matrix;
-			if (m.c == 0)
+			if (m.c === 0)
 			{
 				m.d = v;
 			}
@@ -159,13 +152,13 @@ package flash.display
 		
 		public function get mouseX():Number  {
 			if(stage)
-			return invMatrix.transformPoint(new Point(stage.mouseX, stage.mouseY)).x;
+			return transform.invMatrix.transformPoint(new Point(stage.mouseX, stage.mouseY)).x;
 			return 0;
 		}
 		
 		public function get mouseY():Number  { 
 			if(stage)
-			return invMatrix.transformPoint(new Point(stage.mouseX, stage.mouseY)).y;
+			return transform.invMatrix.transformPoint(new Point(stage.mouseX, stage.mouseY)).y;
 			return 0;
 		}
 		
@@ -178,8 +171,8 @@ package flash.display
 			var r:Number = v * Math.PI / 180;
 			rsin = Math.sin(r);
 			rcos = Math.cos(r);
-			var sx:Number = scaleX;
-			var sy:Number = scaleY;
+			var sx:Number = m.b === 0?m.a:Math.sqrt(m.a * m.a + m.b * m.b);
+			var sy:Number = m.c === 0?m.d:Math.sqrt(m.c * m.c + m.d * m.d);
 			m.a = rcos * sx;
 			m.b = rsin * sx;
 			m.c = -rsin * sy;
@@ -199,16 +192,20 @@ package flash.display
 		
 		public function set rotationZ(v:Number):void  {/**/ }
 		
-		public function get alpha():Number  { return _alpha; }
-		
-		public function get worldAlpha():Number{
-			if (parent){
-				return parent.worldAlpha * alpha;
-			}
-			return alpha;
+		public function updateTransforms():void
+		{
+			transform.updateTransforms();
+			SpriteFlexjs.dirtyGraphics = true;
 		}
 		
-		public function set alpha(v:Number):void  { _alpha = v; }
+		public function get alpha():Number  {
+			return transform.colorTransform.alphaMultiplier;
+		}
+		
+		public function set alpha(v:Number):void  { 
+			transform.colorTransform.alphaMultiplier = v;
+			transform.updateColorTransforms();
+		}
 		
 		public function get width():Number  { 
 			var rect:Rectangle = getRect(parent);
@@ -246,55 +243,24 @@ package flash.display
 		
 		public function set blendMode(v:String):void  { _blendMode = v; }
 		
-		public function get transform():Transform  { return _transform }
+		/*public function get transform():Transform  { return _transform }
 		
 		public function set transform(v:Transform):void
 		{
 			_transform = v;
 			updateTransforms();
-		}
-		
-		public function get worldMatrix():Matrix
-		{
-			if (dirty)
-			{
-				_worldMatrix.copyFrom(transform.matrix);
-				if (parent)
-				{
-					_worldMatrix.concat(parent.worldMatrix);
-				}
-				dirty = false;
-			}
-			return _worldMatrix;
-		}
-		
-		public function get invMatrix():Matrix
-		{
-			if (invDirty)
-			{
-				_invMatrix.copyFrom(worldMatrix);
-				_invMatrix.invert();
-				invDirty = false;
-			}
-			return _invMatrix;
-		}
-		
-		public function updateTransforms():void
-		{
-			dirty = true;
-			invDirty = true;
-		}
+		}*/
 		
 		public function get scale9Grid():Rectangle  { return null }
 		
 		public function set scale9Grid(v:Rectangle):void  {/**/ }
 		
 		public function globalToLocal(v:Point):Point  { 
-			return invMatrix.transformPoint(v);
+			return transform.invMatrix.transformPoint(v);
 		}
 		
 		public function localToGlobal(v:Point):Point  { 
-			return worldMatrix.transformPoint(v);
+			return transform.concatenatedMatrix.transformPoint(v);
 		}
 		
 		public function getBounds(v:DisplayObject):Rectangle  { 
@@ -345,7 +311,7 @@ package flash.display
 		
 		public function set metaData(param1:Object):void  {/**/ }
 		
-		public function __update():void
+		public function __update(ctx:CanvasRenderingContext2D):void
 		{
 			/*if (hasEventListener(Event.ENTER_FRAME))
 				dispatchEvent(new Event(Event.ENTER_FRAME));*/
@@ -353,22 +319,16 @@ package flash.display
 		
 		private function __enterFrame(e:Event):void
 		{
-			var time:Number = getTimer();
-			if (stage.canvas.width != stage.stageWidth) {
-				stage.canvas.width = stage.stageWidth;
+			if(SpriteFlexjs.dirtyGraphics){
+				SpriteFlexjs.dirtyGraphics = false;
+				var ctx:CanvasRenderingContext2D = stage.ctx;
+				ctx.setTransform(1, 0, 0, 1, 0, 0);
+				ctx.clearRect(0, 0, stage.stageWidth, stage.stageHeight);
+				SpriteFlexjs.drawCounter = 0;
+				SpriteFlexjs.renderer.start(ctx);
+				__update(ctx);
+				SpriteFlexjs.renderer.finish(ctx);
 			}
-			if (stage.canvas.height != stage.stageHeight) {
-				stage.canvas.height = stage.stageHeight;
-			}
-			var ctx:CanvasRenderingContext2D = stage.ctx;
-			ctx.globalAlpha = 1;
-			ctx.setTransform(1, 0, 0, 1, 0, 0);
-			ctx.clearRect(0, 0, stage.stageWidth, stage.stageHeight);
-			SpriteFlexjs.drawCounter = 0;
-			__update();
-			//if (SpriteFlexjs.debug) {
-				//trace("__update",getTimer() - time);
-			//}
 		}
 		
 		private function __mouseevent(e:flash.events.MouseEvent):void 
@@ -378,7 +338,7 @@ package flash.display
 			var time:Number = getTimer();
 			var obj:DisplayObject = __doMouse(e);
 			time = getTimer();
-			if (e.type==MouseEvent.MOUSE_MOVE) {
+			if (e.type===MouseEvent.MOUSE_MOVE) {
 				//如果类型是mousemove 处理mouseover 和 mouseout事件
 				//如果上次鼠标经过obj不在obj上层节点
 				//递归抛出mouseout事件直到为null或当前节点
@@ -388,7 +348,7 @@ package flash.display
 						break;
 					}else{
 						t.dispatchEvent(new MouseEvent(MouseEvent.MOUSE_OUT,false,false,e.localX,e.localY));
-						t.dispatchEvent(new MouseEvent(MouseEvent.ROLL_OVER,false,false,e.localX,e.localY));
+						t.dispatchEvent(new MouseEvent(MouseEvent.ROLL_OUT,false,false,e.localX,e.localY));
 					}
 					t = t.parent;
 				}

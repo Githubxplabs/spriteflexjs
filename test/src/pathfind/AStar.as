@@ -42,15 +42,15 @@ package pathfind
 			return x.f < y.f;
 		}
 		
-		public function findPath(startX:int, startY:int, endX:int, endY:int):Boolean
+		public function findPath(startX:int, startY:int, endX:int, endY:int,maxStep:int=0):Boolean
 		{
 			nowVersion++;
+			var step:int = 0;
 			open = new BinaryHeap(justMin);
-			if (nodes[startY] && nodes[startY][startX] && nodes[endY] && nodes[endY][endX])
+			if (nodes[startY] && nodes[startY][startX])
 			{
 				var startNode:Node = nodes[startY][startX];
 				startNode.g = 0;
-				var endNode:Node = nodes[endY][endX];
 			}
 			else
 			{
@@ -59,9 +59,9 @@ package pathfind
 			var node:Node = startNode;
 			node.version = nowVersion;
 			var isFind:Boolean = true;
-			var best:Node;
-			var bestH:int = 10000;
-			while (node != endNode)
+			var best:Node = node;
+			var bestH:int = Math.sqrt((node.x-endX)*(node.x-endX)+(node.y-endY)*(node.y-endY))//Math.abs(node.x - endX) + Math.abs(node.y - endY);
+			while (node.x!=endX||node.y!=endY)
 			{
 				for (var y:int = -1; y < 2; y++)
 				{
@@ -73,7 +73,7 @@ package pathfind
 							if (y != 0 || x != 0)
 							{
 								var test:Node = line[node.x + x];
-								if (test && line[test.x] && nodes[test.y][node.x])
+								if (test && nodes[node.y][test.x] && line[node.x])
 								{
 									if (x == 0 || y == 0)
 									{
@@ -83,8 +83,9 @@ package pathfind
 									{
 										cost = Math.SQRT2;
 									}
+									step++;
 									var g:Number = node.g + cost;
-									var h:Number = Math.abs(test.x - endX) + Math.abs(test.y - endY);
+									var h:Number = Math.sqrt((test.x-endX)*(test.x-endX)+(test.y-endY)*(test.y-endY))//Math.abs(test.x - endX) + Math.abs(test.y - endY);
 									var f:Number = g + h;
 									if (test.version == nowVersion)
 									{
@@ -118,14 +119,14 @@ package pathfind
 						}
 					}
 				}
-				if (open.a.length == 1)
+				if (open.a.length == 1||(maxStep!=0&&step>maxStep))
 				{
 					isFind = false;
 					break;
 				}
 				node = open.pop() as Node;
 			}
-			if (node != endNode)
+			if (node.x!=endX||node.y!=endY)
 			{
 				node = best;
 			}

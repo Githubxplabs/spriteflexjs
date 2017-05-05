@@ -1,5 +1,7 @@
 package flash.__native 
 {
+	import flash.display.GraphicsPath;
+	import flash.display.GraphicsPathCommand;
 	import flash.geom.Matrix;
 	/**
 	 * ...
@@ -7,66 +9,42 @@ package flash.__native
 	 */
 	public class GLPath2D 
 	{
-		public var polys:Array = [];
-		public var poly:Array;
 		public var matr:Matrix = new Matrix;
 		public var _drawable:GLDrawable;
-		public var version:int = 0;
 		private var pos:Float32Array;
+		private var uv:Float32Array;
 		private var index:Uint16Array;
+		public var path:GLGraphicsPath;
 		public function GLPath2D() 
 		{
 			
 		}
-		public function arc (x:Number, y:Number, radius:Number, startAngle:Number, endAngle:Number, opt_anticlockwise:Boolean=false) : Object{
-			return rect(x - radius, y - radius, radius * 2, radius * 2);
-		}
-
-		public function arcTo (x1:Number, y1:Number, x2:Number, y2:Number, radius:Number) : Object {
-			return null;
-		}
-		public function bezierCurveTo (cp1x:Number, cp1y:Number, cp2x:Number, cp2y:Number, x:Number, y:Number) : Object {
-			poly.push(cp1x, cp1y, cp2x, cp2y, x, y);
-			return null;
-		}
-		public function quadraticCurveTo (cpx:Number, cpy:Number, x:Number, y:Number) : Object {
-			poly.push(cpx, cpy, x, y);
-			return null;
-		}
-		public function closePath () : Object {
-			return null;
-		}
-		public function lineTo (x:Number, y:Number) : Object {
-			poly.push(x, y);
-			return null;
-		}
-		public function moveTo (x:Number, y:Number) : Object {
-			polys.push(makePoly());
-			poly.push(x, y);
-			return null;
-		}
-		public function rect (x:Number, y:Number, w:Number, h:Number) : Object {
-			moveTo(x, y);
-			lineTo(x + w, y);
-			lineTo(x + w, y + h);
-			lineTo(x, y + h);
-			return null;
-		}
-		
-		private function makePoly():Array {
-			poly = [];
-			return poly;
-		}
 		
 		public function get drawable():GLDrawable{
-			if(_drawable==null){
+			if (path.gpuPath2DDirty){
+				path.gpuPath2DDirty = false;
+				
+				var polys:MemArray = path.polys;
+				
 				var nump:int = 0;
 				var numi:int = 0;
-				var len:int = polys.length;
+				var len:int = path.polys.length as Number;
 				for (var i:int = 0; i < len;i++ ){
-					var poly:Array = polys[i];
-					nump += poly.length;
-					numi += (poly.length / 2 - 2) * 3;
+					var plen:int = path.polys.array[i].length as Number;
+					nump += plen;
+					if(plen>=6){
+						numi += (plen / 2 - 2) * 3;
+					}
+				}
+				var tlen:int = path.tris.length;
+				var diffuv:Boolean = false;
+				for (i = 0; i < tlen;i++ ){
+					var tri:Array = path.tris[i];
+					nump += tri[0].length as Number;
+					numi += tri[1].length as Number;
+					if (tri[2]){
+						diffuv = true;
+					}
 				}
 				if(pos==null||pos.length!=nump){
 					pos = new Float32Array(nump);
@@ -74,14 +52,19 @@ package flash.__native
 				if(index==null||index.length!=numi){
 					index = new Uint16Array(numi);
 				}
+				if(diffuv&&(uv==null||uv.length!=nump)){
+					uv = new Float32Array(nump);
+				}
 				var offset:int = 0;
 				var pi:int = 0;
 				var ii:int = 0;
 				for (i = 0; i < len; i++ ){
-					poly = polys[i];
-					for (var j:int = 0; j < poly.length / 2; j++ ){
-						var x:Number = poly[2 * j];
-						var y:Number = poly[2 * j + 1];
+					var poly:MemArray = polys.array[i];
+					plen = poly.length;
+					var plendiv2:int = plen / 2;
+					for (var j:int = 0; j < plendiv2; j++ ){
+						var x:Number = poly.array[2 * j] as Number;
+						var y:Number = poly.array[2 * j + 1] as Number;
 						pos[pi++] = x;
 						pos[pi++] = y;
 						if (j>=2){
@@ -92,7 +75,35 @@ package flash.__native
 					}
 					offset += j;
 				}
-				_drawable = new GLDrawable(pos, pos, index);
+				
+				for (i = 0; i < tlen;i++ ){
+					tri = path.tris[i];
+					var vsdata:Vector.<Number> = tri[0];
+					var idata:Vector.<int> = tri[1];
+					var uvdata:Vector.<Number> = tri[2];
+					var len2:int = vsdata.length as Number;
+					for (j = 0; j < len2;j++ ){
+						pos[pi] = vsdata[j];
+						if(uvdata)
+						uv[pi] = uvdata[j];
+						pi++;
+					}
+					len2 = idata.length as Number;
+					for (j = 0; j < len2;j++ ){
+						index[ii++] = offset + idata[j];
+					}
+					offset += vsdata.length / 2;
+				}
+				if(_drawable==null){
+					_drawable = new GLDrawable(pos, pos, index,WebGLRenderingContext.STATIC_DRAW);
+				}else{
+					_drawable.pos.data = pos;
+					_drawable.uv.data = diffuv?uv:pos;
+					_drawable.index.data = index;
+					_drawable.pos.dirty = true;
+					_drawable.uv.dirty = true;
+					_drawable.index.dirty = true;
+				}
 			}
 			return _drawable;
 		}

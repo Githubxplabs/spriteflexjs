@@ -12,7 +12,7 @@ package flash.utils
 		private var m_repeatCount:int;
 		
 		private var m_iteration:int;
-		
+		private var intervalID:int;
 		public function Timer(delay:Number, repeatCount:int = 0)
 		{
 			super();
@@ -22,6 +22,7 @@ package flash.utils
 			}
 			this.m_delay = delay;
 			this.m_repeatCount = repeatCount;
+			this.m_iteration = 0;
 		}
 		
 		public function get delay():Number
@@ -95,19 +96,19 @@ package flash.utils
 			this.m_iteration = 0;
 		}
 		
-		private function _start(param1:Number, param2:Function):void
+		private function _start(m_delay:Number, m_tick:Function):void
 		{
-		
+			intervalID=setInterval(m_tick, m_delay);
 		}
 		
 		private function _timerDispatch():void
 		{
-		
+			dispatchEvent(new TimerEvent(TimerEvent.TIMER));
 		}
 		
 		public function stop():void
 		{
-		
+			clearInterval(intervalID);
 		}
 	}
 }

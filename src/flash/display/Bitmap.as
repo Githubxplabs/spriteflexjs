@@ -39,6 +39,7 @@ package flash.display
 		public function set bitmapData(param1:BitmapData):void
 		{
 			_bitmapData = param1;
+			SpriteFlexjs.dirtyGraphics = true;
 		}
 		
 		override public function __getRect():Rectangle 
@@ -47,14 +48,14 @@ package flash.display
 			return null;
 		}
 		
-		override public function __update():void
+		override public function __update(ctx:CanvasRenderingContext2D):void
 		{
-			super.__update();
-			if (stage && _bitmapData&&_bitmapData.image&&visible)
+			//super.__update();
+			if (/*stage &&*/ _bitmapData&&_bitmapData.image&&visible)
 			{
-				var m:Matrix = worldMatrix;
+				var m:Matrix = transform.concatenatedMatrix;
 				
-				var w:Number = _bitmapData.width;
+				/*var w:Number = _bitmapData.width;
 				var h:Number = _bitmapData.height;
 				var a:Number = m.a * w;
 				var b:Number = m.c * h;
@@ -67,20 +68,20 @@ package flash.display
 				var sw:Number = stage.stageWidth;
 				var sh:Number = stage.stageHeight;
 				
-				if (maxX > 0 && maxY > 0 && minX < sw && minY < sh){
-					SpriteFlexjs.renderer.renderImage(stage.ctx, _bitmapData, m, worldAlpha, blendMode, transform.colorTransform);
+				if (maxX > 0 && maxY > 0 && minX < sw && minY < sh){*/
+					SpriteFlexjs.renderer.renderImage(ctx, _bitmapData, m, blendMode, transform.concatenatedColorTransform);
 					SpriteFlexjs.drawCounter++;
-				}
+				//}
 			}
 		}
 		
 		override protected function __doMouse(e:flash.events.MouseEvent):DisplayObject 
 		{
-			if (stage&&visible) {
-				var obj:DisplayObject = super.__doMouse(e);
+			if (/*stage&&*/visible) {
+				/*var obj:DisplayObject = super.__doMouse(e);
 				if (obj) {
 					return obj;
-				}
+				}*/
 				if (hitTestPoint(stage.mouseX, stage.mouseY)) {
 					return this;
 				}

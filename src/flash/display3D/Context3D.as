@@ -40,6 +40,8 @@ package flash.display3D
 		{
 			canvas.width = width;
 			canvas.height = height;
+			canvas.style.width = width + "px";
+			canvas.style.height = height + "px";
 			gl.viewport(0, 0, width, height);
 			if (enableDepthAndStencil)
 			{
@@ -55,6 +57,7 @@ package flash.display3D
 		
 		public function clear(red:Number = 0, green:Number = 0, blue:Number = 0, alpha:Number = 1, depth:Number = 1, stencil:uint = 0, mask:uint = 4294967295):void
 		{
+			SpriteFlexjs.dirtyGraphics = true;
 			gl.clearColor(red, green, blue, alpha);
 			gl.clearDepth(depth);
 			gl.clearStencil(stencil);
@@ -69,6 +72,7 @@ package flash.display3D
 		
 		public function present():void
 		{
+			SpriteFlexjs.dirtyGraphics = true;
 		}
 		
 		public function setProgram(program:Program3D):void
@@ -99,15 +103,18 @@ package flash.display3D
 		}
 		public function setProgramConstantsFromVectorGL(name:String, data:Vector.<Number>, numRegisters:int = -1):void
 		{
-			gl.uniform4fv(getUniformLocation(name), data);
+			gl.uniform4fv(getUniformLocation(name), data as Object);
 		}
 		
+		/**
+		 * @flexjsignorecoercion Object
+		 */
 		public function setProgramConstantsFromMatrixGL(name:String, matrix:Matrix3D, transposedMatrix:Boolean = false):void
 		{
 			if (transposedMatrix) {
 				matrix.transpose();
 			}
-			gl.uniformMatrix4fv(getUniformLocation(name), false, matrix.rawData);
+			gl.uniformMatrix4fv(getUniformLocation(name), false, matrix.rawData as Object);
 			if (transposedMatrix) {
 				matrix.transpose();
 			}
@@ -119,7 +126,7 @@ package flash.display3D
 		
 		private function getUniformLocationName(programType:String, register:int):String
 		{
-			return (Context3DProgramType.VERTEX == programType) ? ("vc" + register) : ("fc" + register);
+			return (Context3DProgramType.VERTEX === programType) ? ("vc" + register) : ("fc" + register);
 		}
 		private function getUniformLocation(name:String):WebGLUniformLocation
 		{
@@ -136,7 +143,9 @@ package flash.display3D
 				currentVBufs[name] = buffer;
 				var loc:Number= currentProgram.getAttribLocation(name);
 				gl.bindBuffer(gl.ARRAY_BUFFER, buffer.buff);
+				var type:int = gl.FLOAT;
 				var size:int = 0;
+				var normalized:Boolean = false;
 				switch (format)
 				{
 				case Context3DVertexBufferFormat.FLOAT_1: 
@@ -151,8 +160,13 @@ package flash.display3D
 				case Context3DVertexBufferFormat.FLOAT_4: 
 					size = 4;
 					break;
+				case Context3DVertexBufferFormat.BYTES_4: 
+					size = 4;
+					type = gl.UNSIGNED_BYTE;
+					normalized = true;
+					break;
 				}
-				gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, bufferOffset);
+				gl.vertexAttribPointer(loc, size, type, normalized, bufferOffset, bufferOffset);
 			}
 		}
 		
@@ -230,7 +244,7 @@ package flash.display3D
 		
 		public function setCulling(triangleFaceToCull:String):void
 		{
-			if (triangleFaceToCull == Context3DTriangleFace.NONE)
+			if (triangleFaceToCull === Context3DTriangleFace.NONE)
 			{
 				gl.disable(gl.CULL_FACE);
 			}

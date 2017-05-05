@@ -132,7 +132,7 @@ package flash.geom
       
       public function equals(toCompare:Vector3D, allFour:Boolean = false) : Boolean
       {
-         return this.x == toCompare.x && this.y == toCompare.y && this.z == toCompare.z && (allFour?this.w == toCompare.w:true);
+         return this.x === toCompare.x && this.y === toCompare.y && this.z === toCompare.z && (allFour?this.w === toCompare.w:true);
       }
       
       public function nearEquals(toCompare:Vector3D, tolerance:Number, allFour:Boolean = false) : Boolean
@@ -176,7 +176,6 @@ package flash.geom
          return s;
       }
       
-      [API("674")]
       public function copyFrom(sourceVector3D:Vector3D) : void
       {
          this.x = sourceVector3D.x;
@@ -184,7 +183,6 @@ package flash.geom
          this.z = sourceVector3D.z;
       }
       
-      [API("674")]
       public function setTo(xa:Number, ya:Number, za:Number) : void
       {
          this.x = xa;

@@ -47,7 +47,7 @@ package flash.geom
       
       public function equals(toCompare:Point) : Boolean
       {
-         return toCompare.x == this.x && toCompare.y == this.y;
+         return toCompare.x === this.x && toCompare.y === this.y;
       }
       
       public function subtract(v:Point) : Point
@@ -76,14 +76,12 @@ package flash.geom
          return "(x=" + this.x + ", y=" + this.y + ")";
       }
       
-      [API("674")]
       public function copyFrom(sourcePoint:Point) : void
       {
          this.x = sourcePoint.x;
          this.y = sourcePoint.y;
       }
       
-      [API("674")]
       public function setTo(xa:Number, ya:Number) : void
       {
          this.x = xa;
